@@ -1,14 +1,14 @@
 {
   "name": "@nerimity/mimiqueue",
-  "version": "1.0.2",
-  "description": "",
+  "version": "1.0.3",
+  "description": "NodeJS group queuing library. Requires Redis.",
   "main": "dist/index.mjs",
   "scripts": {
     "build": "tsup",
     "prepublish": "npm run build"
   },
   "keywords": [],
-  "author": "",
+  "author": "SupertigerDev",
   "license": "ISC",
   "devDependencies": {
     "@types/node": "^22.1.0",
@@ -20,5 +20,13 @@
   },
   "peerDependencies": {
     "redis": "^4.7.0"
-  }
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Nerimity/Mimiqueue.git"
+  },
+  "bugs": {
+    "url": "https://github.com/Nerimity/Mimiqueue/issues"
+  },
+  "homepage": "https://github.com/Nerimity/Mimiqueue#readme"
 }

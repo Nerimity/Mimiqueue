@@ -4,14 +4,13 @@
 
 ```
 pnpm i redis @nerimity/mimiqueue
-
 ```
 
 ### Usage
 
 ```ts
 import { createClient } from "redis";
-import { Queue } from "./dist/index.mjs";
+import { Queue } from "@nerimity/mimiqueue";
 import { setTimeout } from "timers/promises";
 
 const redisClient = createClient({

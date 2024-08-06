@@ -24,9 +24,11 @@ const addFriendQueue = new Queue({
 addFriendQueue.add({ someData: 1 }, { groupName: "1234" }).then((res) => {
   console.log(res);
 });
-addFriendQueue.add("hello", { groupName: "1234" }).then((res) => {
+
+addFriendQueue.add({ someData: 2 }, { groupName: "1234" }).then((res) => {
   console.log(res);
 });
-addFriendQueue.add(123).then((res) => {
+
+addFriendQueue.add({ someData: 3 }, { groupName: "1234" }).then((res) => {
   console.log(res);
 });

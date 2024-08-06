@@ -3,24 +3,19 @@ import { Queue as MemoryQueue } from "async-await-queue";
 
 type RedisClient = ReturnType<typeof createClient>;
 
-interface QueueOpts<T> {
+interface AltQueueOpts {
   name: string;
   redisClient: RedisClient;
-  process: T;
 }
-export class Queue<
-  T extends (data: any) => Promise<any> = (data: any) => Promise<any>
-> {
+export class AltQueue {
   addQueue = new MemoryQueue(1);
 
   redisClient: RedisClient;
   name: string;
   prefix = "mimiqueue";
-  ids: Map<string, [any, any]> = new Map();
+  ids: Map<string, () => void> = new Map();
   sub: RedisClient;
-  processFn: T;
-  constructor(opts: QueueOpts<T>) {
-    this.processFn = opts.process;
+  constructor(opts: AltQueueOpts) {
     this.name = opts.name;
     this.redisClient = opts.redisClient;
     this.sub = this.redisClient.duplicate();
@@ -63,25 +58,18 @@ export class Queue<
     const cb = this.ids.get(id);
     if (!cb) return;
 
-    const job = await getJobById(this, id, groupName);
-    const data = JSON.parse(job.data || "null");
-    await this.processFn(data)
-      .then((result: any) => {
-        return cb[0](result);
-      })
-      .catch((e: any) => {
-        return cb[1](e);
-      });
+    cb();
 
-    await removeActiveJob(this, id, groupName);
-    this.redisClient.publish(
-      "mimiqueue",
-      JSON.stringify(["finish", name, id, groupName])
-    );
+    // await removeActiveJob(this, id, groupName);
+    // this.redisClient.publish(
+    //   "mimiqueue",
+    //   JSON.stringify(["finish", name, id, groupName])
+    // );
   }
-  async add(data: any, opts?: { groupName?: string }) {
+
+  async start(opts?: { groupName?: string }): Promise<() => Promise<void>> {
     const id = await this.addQueue.run(async () => {
-      const id = await addJob(this, data, opts?.groupName);
+      const id = await addJob(this, opts?.groupName);
 
       const hasActiveOrWaitingJobs = await activeOrWaitingJobCount(
         this,
@@ -104,17 +92,29 @@ export class Queue<
       return id;
     });
 
-    return new Promise((resolve, reject) => {
-      this.ids.set(id.toString(), [resolve, reject]);
+    return new Promise((res) => {
+      this.ids.set(id.toString(), () =>
+        res(async () => {
+          const cb = this.ids.get(id.toString());
+          if (!cb) return;
+
+          const idStr = id.toString();
+          await removeActiveJob(this, idStr, opts?.groupName);
+          this.redisClient.publish(
+            "mimiqueue",
+            JSON.stringify(["finish", this.name, idStr, opts?.groupName])
+          );
+        })
+      );
     });
   }
 }
 
-async function genId(queue: Queue) {
+async function genId(queue: AltQueue) {
   return await queue.redisClient.incr(`${queue.prefix}:${queue.name}:id`);
 }
 
-async function addJob<T>(queue: Queue, data: T, groupName?: string) {
+async function addJob(queue: AltQueue, groupName?: string) {
   const id = await genId(queue);
 
   let key = `${queue.prefix}:${queue.name}`;
@@ -122,14 +122,13 @@ async function addJob<T>(queue: Queue, data: T, groupName?: string) {
   key += `:${id}`;
 
   await queue.redisClient.hSet(key, {
-    data: JSON.stringify(data),
     createdAt: Date.now(),
   });
 
   return id;
 }
 
-function addJobToWaiting(queue: Queue, id: number, groupName?: string) {
+function addJobToWaiting(queue: AltQueue, id: number, groupName?: string) {
   let key = `${queue.prefix}:${queue.name}`;
   if (groupName) key += `:${groupName}`;
   key += ":wait";
@@ -137,7 +136,11 @@ function addJobToWaiting(queue: Queue, id: number, groupName?: string) {
   return queue.redisClient.rPush(key, id.toString());
 }
 
-function addJobToActive(queue: Queue, id: number | string, groupName?: string) {
+function addJobToActive(
+  queue: AltQueue,
+  id: number | string,
+  groupName?: string
+) {
   let key = `${queue.prefix}:${queue.name}`;
   if (groupName) key += `:${groupName}`;
   key += ":active";
@@ -145,7 +148,7 @@ function addJobToActive(queue: Queue, id: number | string, groupName?: string) {
   return queue.redisClient.set(key, id.toString());
 }
 
-async function activeOrWaitingJobCount(queue: Queue, groupName?: string) {
+async function activeOrWaitingJobCount(queue: AltQueue, groupName?: string) {
   let key = `${queue.prefix}:${queue.name}`;
   if (groupName) key += `:${groupName}`;
 
@@ -158,13 +161,17 @@ async function activeOrWaitingJobCount(queue: Queue, groupName?: string) {
   return (active ? 1 : 0) + wait;
 }
 
-async function getJobById(queue: Queue, id: string, groupName?: string) {
+async function getJobById(queue: AltQueue, id: string, groupName?: string) {
   let key = `${queue.prefix}:${queue.name}`;
   if (groupName) key += `:${groupName}`;
 
   return queue.redisClient.hGetAll(`${key}:${id.toString()}`);
 }
-async function removeActiveJob(queue: Queue, id: string, groupName?: string) {
+async function removeActiveJob(
+  queue: AltQueue,
+  id: string,
+  groupName?: string
+) {
   let key1 = `${queue.prefix}:${queue.name}`;
   if (groupName) key1 += `:${groupName}`;
   key1 += ":active";
@@ -180,7 +187,11 @@ async function removeActiveJob(queue: Queue, id: string, groupName?: string) {
   return multi.exec();
 }
 
-async function removeWaitingJob(queue: Queue, id: string, groupName?: string) {
+async function removeWaitingJob(
+  queue: AltQueue,
+  id: string,
+  groupName?: string
+) {
   let key = `${queue.prefix}:${queue.name}`;
   if (groupName) key += `:${groupName}`;
   key += ":wait";
@@ -188,7 +199,7 @@ async function removeWaitingJob(queue: Queue, id: string, groupName?: string) {
 }
 
 async function getAndMoveLatestWaitingJobToActive(
-  queue: Queue,
+  queue: AltQueue,
   groupName?: string
 ) {
   let key = `${queue.prefix}:${queue.name}`;

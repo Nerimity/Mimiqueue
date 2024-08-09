@@ -41,4 +41,12 @@ declare class AltQueue {
     }): Promise<() => Promise<void>>;
 }
 
-export { AltQueue, Queue };
+declare class AltQueue2 {
+    private _altQueue;
+    constructor(opts: AltQueueOpts);
+    add(cb: () => Promise<void>, opts: {
+        groupName?: string;
+    }): Promise<void>;
+}
+
+export { AltQueue, AltQueue2, type AltQueueOpts, Queue };

@@ -3,7 +3,7 @@ import { Queue as MemoryQueue } from "async-await-queue";
 
 type RedisClient = ReturnType<typeof createClient>;
 
-interface AltQueueOpts {
+export interface AltQueueOpts {
   name: string;
   redisClient: RedisClient;
 }

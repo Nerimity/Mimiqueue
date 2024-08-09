@@ -75,3 +75,38 @@ async function doSomething(groupName) {
 doSomething("123");
 doSomething("123");
 ```
+
+## Alt 2 Usage
+
+```ts
+import { createClient } from "redis";
+import { AltQueue2 } from "@nerimity/mimiqueue";
+import { setTimeout } from "timers/promises";
+
+const redisClient = createClient({
+  socket: {
+    host: "127.0.0.1",
+    port: 6379,
+  },
+});
+
+await redisClient.connect();
+await redisClient.flushAll();
+
+const queue = new AltQueue2({
+  redisClient,
+  name: "addFriend",
+});
+
+async function queueDoSomething(groupName) {
+  queue.add(() => doSomething(groupName), { groupName });
+}
+
+async function doSomething(groupName) {
+  console.log("doing something");
+  await setTimeout(1000);
+}
+
+queueDoSomething("123");
+queueDoSomething("123");
+```

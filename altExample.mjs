@@ -1,5 +1,5 @@
 import { createClient } from "redis";
-import { AltQueue } from "./dist/index.mjs";
+import { AltQueue, handleTimeout } from "./dist/index.mjs";
 import { setTimeout } from "timers/promises";
 
 const redisClient = createClient({
@@ -12,6 +12,10 @@ const redisClient = createClient({
 await redisClient.connect();
 await redisClient.flushAll();
 
+handleTimeout({
+  redisClient,
+});
+
 const queue = new AltQueue({
   redisClient,
   name: "addFriend",
@@ -21,7 +25,7 @@ async function doSomething(groupName) {
   const done = await queue.start({ groupName });
   console.log("doing something");
   await setTimeout(1000);
-  done();
+  // done();
 }
 
 doSomething("123");

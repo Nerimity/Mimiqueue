@@ -1,5 +1,5 @@
 import { createClient } from "redis";
-import { Queue } from "./dist/index.mjs";
+import { Queue, handleTimeout } from "./dist/index.mjs";
 import { setTimeout } from "timers/promises";
 
 const redisClient = createClient({
@@ -11,6 +11,10 @@ const redisClient = createClient({
 
 await redisClient.connect();
 await redisClient.flushAll();
+
+handleTimeout({
+  redisClient,
+});
 
 const addFriendQueue = new Queue({
   redisClient,

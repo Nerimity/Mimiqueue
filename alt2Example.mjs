@@ -12,6 +12,10 @@ const redisClient = createClient({
 await redisClient.connect();
 await redisClient.flushAll();
 
+handleTimeout({
+  redisClient,
+});
+
 const queue = new AltQueue2({
   redisClient,
   name: "addFriend",

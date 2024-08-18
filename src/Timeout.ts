@@ -41,6 +41,8 @@ export async function handleTimeout(opts: HandleTimeoutOpts) {
     if (payload[0] === "finish") {
       const name = payload[1];
       const id = payload[2];
+      const timeoutId = queuedJobs.get(`${name}${id}`);
+      clearTimeout(timeoutId);
       queuedJobs.delete(`${name}${id}`);
     }
   });

@@ -28,7 +28,7 @@ export class Queue<
 
     this.sub.subscribe("mimiqueue", async (message) => {
       const payload = JSON.parse(message) as [
-        "start" | "finish",
+        "start" | "finish" | "remove",
         string,
         string,
         string
@@ -36,6 +36,11 @@ export class Queue<
 
       if (payload[0] === "start") {
         this.startJob(payload[1], payload[2], payload[3]);
+      }
+
+      if (payload[0] === "remove") {
+        if (this.name !== payload[1]) return;
+        this.ids.delete(payload[2]);
       }
 
       if (payload[0] === "finish") {

@@ -12,9 +12,8 @@ const redisClient = createClient({
 await redisClient.connect();
 await redisClient.flushAll();
 
-await handleTimeout({
+handleTimeout({
   redisClient,
-  duration: 1000,
 });
 
 const queue = new AltQueue({
@@ -25,9 +24,9 @@ const queue = new AltQueue({
 async function doSomething(groupName) {
   const done = await queue.start({ groupName });
   console.log("doing something");
-  await setTimeout(5000);
+  await setTimeout(1000);
   done();
 }
 
-await doSomething("123");
-await doSomething("123");
+doSomething("123");
+doSomething("123");

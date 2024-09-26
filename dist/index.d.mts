@@ -6,6 +6,7 @@ interface QueueOpts<T> {
     name: string;
     redisClient: RedisClient$2;
     process: T;
+    prefix?: string;
 }
 declare class Queue<T extends (data: any) => Promise<any> = (data: any) => Promise<any>> {
     addQueue: Queue$1<unknown>;
@@ -26,6 +27,7 @@ type RedisClient$1 = ReturnType<typeof createClient>;
 interface AltQueueOpts {
     name: string;
     redisClient: RedisClient$1;
+    prefix?: string;
 }
 declare class AltQueue {
     addQueue: Queue$1<unknown>;
@@ -52,6 +54,7 @@ declare class AltQueue2 {
 type RedisClient = ReturnType<typeof createClient>;
 interface HandleTimeoutOpts {
     redisClient: RedisClient;
+    prefix?: string;
     duration?: number;
 }
 declare function handleTimeout(opts: HandleTimeoutOpts): Promise<void>;

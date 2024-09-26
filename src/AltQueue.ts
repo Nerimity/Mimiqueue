@@ -6,22 +6,24 @@ type RedisClient = ReturnType<typeof createClient>;
 export interface AltQueueOpts {
   name: string;
   redisClient: RedisClient;
+  prefix?: string;
 }
 export class AltQueue {
   addQueue = new MemoryQueue(1);
 
   redisClient: RedisClient;
   name: string;
-  prefix = "mimiqueue";
+  prefix: string;
   ids: Map<string, () => void> = new Map();
   sub: RedisClient;
   constructor(opts: AltQueueOpts) {
+    this.prefix = opts.prefix || "mimiqueue";
     this.name = opts.name;
     this.redisClient = opts.redisClient;
     this.sub = this.redisClient.duplicate();
     this.sub.connect();
 
-    this.sub.subscribe("mimiqueue", async (message) => {
+    this.sub.subscribe(this.prefix, async (message) => {
       const payload = JSON.parse(message) as [
         "start" | "finish" | "remove",
         string,
@@ -53,7 +55,7 @@ export class AltQueue {
           latestJob.id,
           payload[3],
         ]);
-        this.redisClient.publish("mimiqueue", newPayload);
+        this.redisClient.publish(this.prefix, newPayload);
       }
     });
   }
@@ -67,7 +69,7 @@ export class AltQueue {
 
     // await removeActiveJob(this, id, groupName);
     // this.redisClient.publish(
-    //   "mimiqueue",
+    //   this.prefix,
     //   JSON.stringify(["finish", name, id, groupName])
     // );
   }
@@ -92,7 +94,7 @@ export class AltQueue {
           id.toString(),
           opts?.groupName,
         ]);
-        this.redisClient.publish("mimiqueue", payload);
+        this.redisClient.publish(this.prefix, payload);
       }
       return id;
     });
@@ -106,7 +108,7 @@ export class AltQueue {
           const idStr = id.toString();
           await removeActiveJob(this, idStr, opts?.groupName);
           this.redisClient.publish(
-            "mimiqueue",
+            this.prefix,
             JSON.stringify(["finish", this.name, idStr, opts?.groupName])
           );
         })

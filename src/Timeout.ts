@@ -4,6 +4,7 @@ type RedisClient = ReturnType<typeof createClient>;
 
 interface HandleTimeoutOpts {
   redisClient: RedisClient;
+  prefix?: string;
   /*
    * @default 30000
    */
@@ -13,11 +14,12 @@ interface HandleTimeoutOpts {
 const queuedJobs = new Map<string, NodeJS.Timeout>();
 
 export async function handleTimeout(opts: HandleTimeoutOpts) {
+  const prefix = opts.prefix || "mimiqueue";
   const redisClient = opts.redisClient;
   const sub = redisClient.duplicate();
   await sub.connect();
 
-  sub.subscribe("mimiqueue", async (message) => {
+  sub.subscribe(prefix, async (message) => {
     const payload = JSON.parse(message) as [
       "start" | "finish",
       string,
@@ -38,11 +40,12 @@ export async function handleTimeout(opts: HandleTimeoutOpts) {
             payload[2],
             payload[3],
           ]);
-          redisClient.publish("mimiqueue", removeJobPayload);
-          await removeActiveJob(redisClient, name, id, payload[3]);
+          redisClient.publish(prefix, removeJobPayload);
+          await removeActiveJob(redisClient, name, id, prefix, payload[3]);
           const latestJob = await getAndMoveLatestWaitingJobToActive(
             redisClient,
             payload[1],
+            prefix,
             payload[3]
           );
           if (!latestJob) return;
@@ -52,7 +55,7 @@ export async function handleTimeout(opts: HandleTimeoutOpts) {
             latestJob.id,
             payload[3],
           ]);
-          redisClient.publish("mimiqueue", newPayload);
+          redisClient.publish(prefix, newPayload);
         }, opts.duration || 30000)
       );
     }
@@ -71,9 +74,10 @@ async function removeWaitingJob(
   redisClient: RedisClient,
   queueName: string,
   id: string,
-  groupName?: string
+  prefix: string,
+  groupName?: string,
 ) {
-  let key = `mimiqueue:${queueName}`;
+  let key = `${prefix}:${queueName}`;
   if (groupName) key += `:${groupName}`;
   key += ":wait";
   return redisClient.lRem(key, 1, id.toString());
@@ -82,18 +86,19 @@ async function removeWaitingJob(
 async function getAndMoveLatestWaitingJobToActive(
   redisClient: RedisClient,
   queueName: string,
-  groupName?: string
+  prefix: string,
+  groupName?: string,
 ) {
-  let key = `mimiqueue:${queueName}`;
+  let key = `${prefix}:${queueName}`;
   if (groupName) key += `:${groupName}`;
   key += ":wait";
   const id = await redisClient.lIndex(key, 0);
   if (!id) return null;
-  const activeJob = getJobById(redisClient, queueName, id, groupName);
+  const activeJob = getJobById(redisClient, queueName, id, prefix, groupName);
   if (!activeJob) return null;
 
-  await removeWaitingJob(redisClient, queueName, id, groupName);
-  await addJobToActive(redisClient, queueName, id, groupName);
+  await removeWaitingJob(redisClient, queueName, id, prefix, groupName);
+  await addJobToActive(redisClient, queueName, id, prefix, groupName);
   return { job: activeJob, id };
 }
 
@@ -101,9 +106,10 @@ async function getJobById(
   redisClient: RedisClient,
   queueName: string,
   id: string,
+  prefix: string,
   groupName?: string
 ) {
-  let key = `mimiqueue:${queueName}`;
+  let key = `${prefix}:${queueName}`;
   if (groupName) key += `:${groupName}`;
 
   return redisClient.hGetAll(`${key}:${id.toString()}`);
@@ -113,9 +119,10 @@ function addJobToActive(
   redisClient: RedisClient,
   queueName: string,
   id: number | string,
+  prefix: string,
   groupName?: string
 ) {
-  let key = `mimiqueue:${queueName}`;
+  let key = `${prefix}:${queueName}`;
   if (groupName) key += `:${groupName}`;
   key += ":active";
 
@@ -126,9 +133,10 @@ function removeActiveJob(
   redisClient: RedisClient,
   queueName: string,
   id: number | string,
+  prefix: string,
   groupName?: string
 ) {
-  let key = `mimiqueue:${queueName}`;
+  let key = `${prefix}:${queueName}`;
   if (groupName) key += `:${groupName}`;
   key += ":active";
 

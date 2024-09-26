@@ -7,6 +7,7 @@ interface QueueOpts<T> {
   name: string;
   redisClient: RedisClient;
   process: T;
+  prefix?: string;
 }
 export class Queue<
   T extends (data: any) => Promise<any> = (data: any) => Promise<any>
@@ -15,18 +16,19 @@ export class Queue<
 
   redisClient: RedisClient;
   name: string;
-  prefix = "mimiqueue";
+  prefix: string;
   ids: Map<string, [any, any]> = new Map();
   sub: RedisClient;
   processFn: T;
   constructor(opts: QueueOpts<T>) {
+    this.prefix = opts.prefix || "mimiqueue";
     this.processFn = opts.process;
     this.name = opts.name;
     this.redisClient = opts.redisClient;
     this.sub = this.redisClient.duplicate();
     this.sub.connect();
 
-    this.sub.subscribe("mimiqueue", async (message) => {
+    this.sub.subscribe(this.prefix, async (message) => {
       const payload = JSON.parse(message) as [
         "start" | "finish" | "remove",
         string,
@@ -58,7 +60,7 @@ export class Queue<
           latestJob.id,
           payload[3],
         ]);
-        this.redisClient.publish("mimiqueue", newPayload);
+        this.redisClient.publish(this.prefix, newPayload);
       }
     });
   }
@@ -80,7 +82,7 @@ export class Queue<
 
     await removeActiveJob(this, id, groupName);
     this.redisClient.publish(
-      "mimiqueue",
+      this.prefix,
       JSON.stringify(["finish", name, id, groupName])
     );
   }
@@ -104,7 +106,7 @@ export class Queue<
           id.toString(),
           opts?.groupName,
         ]);
-        this.redisClient.publish("mimiqueue", payload);
+        this.redisClient.publish(this.prefix, payload);
       }
       return id;
     });

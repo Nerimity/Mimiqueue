@@ -5,15 +5,14 @@ type RedisClient = ReturnType<typeof createClient>;
 interface createQueueOpts<T = () => any> {
     redisClient: RedisClient;
     name: string;
-    globalMinTime?: number;
+    minTime?: number;
 }
 interface AddOpts {
     groupName?: string;
-    minTime?: number;
 }
-declare const createQueue: (opts: createQueueOpts) => {
+declare const createQueue: (opts: createQueueOpts) => Promise<{
     add: <T extends () => any>(func: T, addOpts?: AddOpts) => Promise<ReturnType<T>>;
-};
+}>;
 
 interface CreateQueueProcessorOpts {
     redisClient: RedisClient;
@@ -22,6 +21,6 @@ interface CreateQueueProcessorOpts {
  *  This function should be ran in the main thread.
  *
  */
-declare const createQueueProcessor: (opts: CreateQueueProcessorOpts) => void;
+declare const createQueueProcessor: (opts: CreateQueueProcessorOpts) => Promise<void>;
 
 export { createQueue, createQueueProcessor };

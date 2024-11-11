@@ -15,11 +15,11 @@ if (cluster.isPrimary) {
   await redisClient.connect();
   await redisClient.flushAll();
 
-  createQueueProcessor({
+  await createQueueProcessor({
     redisClient,
   });
 
-  for (let i = 0; i < 2; i++) {
+  for (let i = 0; i < 4; i++) {
     cluster.fork();
   }
 

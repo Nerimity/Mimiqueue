@@ -1,23 +1,46 @@
 import { Queue } from "async-await-queue";
 import { RedisClient, Event, StartEvent } from "./types";
 import { makeKey } from "./utils";
+import { setTimeout } from "timers/promises";
 
 interface CreateQueueProcessorOpts {
   redisClient: RedisClient;
+}
+
+interface QueueOption {
+  minTime?: number;
+  localQueue: Queue;
 }
 /**
  *  This function should be ran in the main thread.
  *
  */
-export const createQueueProcessor = (opts: CreateQueueProcessorOpts) => {
+export const createQueueProcessor = async (opts: CreateQueueProcessorOpts) => {
   const redisClient = opts.redisClient;
-  const localQueue = new Queue(1);
+  const queueOptions: Map<string, QueueOption> = new Map();
 
   const sub = redisClient.duplicate();
-  sub.connect();
+  await sub.connect();
 
-  sub.subscribe("mq", async (message) => {
+  await sub.subscribe("mq", async (message) => {
     const payload = JSON.parse(message) as Event;
+
+    if (payload.event === "options") {
+      if (queueOptions.has(payload.name)) {
+        return;
+      }
+      queueOptions.set(payload.name, {
+        minTime: payload.minTime,
+        localQueue: new Queue(1),
+      });
+      return;
+    }
+    const options = queueOptions.get(payload.name);
+    const localQueue = options?.localQueue;
+
+    if (!options || !localQueue) {
+      return;
+    }
 
     localQueue.run(async () => {
       if (payload.event === "add") {
@@ -35,10 +58,11 @@ export const createQueueProcessor = (opts: CreateQueueProcessorOpts) => {
         }
 
         await redisClient.lRem(waitKey, 1, payload.id);
-
         await redisClient.rPush(activeKey, payload.id);
-
-        await redisClient.publish(
+        if (options.minTime) {
+          await setTimeout(options.minTime);
+        }
+        redisClient.publish(
           "mq",
           JSON.stringify({ ...payload, event: "start" } as StartEvent)
         );
@@ -59,7 +83,10 @@ export const createQueueProcessor = (opts: CreateQueueProcessorOpts) => {
 
         if (firstWaitingId) {
           await redisClient.rPush(activeKey, firstWaitingId);
-          await redisClient.publish(
+          if (options.minTime) {
+            await setTimeout(options.minTime);
+          }
+          redisClient.publish(
             "mq",
             JSON.stringify({
               ...payload,

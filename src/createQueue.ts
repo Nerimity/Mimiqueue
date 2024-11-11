@@ -1,20 +1,23 @@
-import { AddEvent, Event, FinishEvent, RedisClient } from "./types";
+import {
+  AddEvent,
+  Event,
+  FinishEvent,
+  OptionsEvent,
+  RedisClient,
+} from "./types";
 import { makeKey } from "./utils";
-import { setTimeout } from "timers/promises";
 interface createQueueOpts<T = () => any> {
   redisClient: RedisClient;
   name: string;
-  globalMinTime?: number;
+  minTime?: number;
 }
 
 interface AddOpts {
   groupName?: string;
-  minTime?: number;
 }
 
 interface WaitList {
   func: () => Promise<any>;
-  minTime?: number;
 }
 
 const generateId = async (redisClient: RedisClient, name?: string) => {
@@ -22,13 +25,22 @@ const generateId = async (redisClient: RedisClient, name?: string) => {
   return id.toString();
 };
 
-export const createQueue = (opts: createQueueOpts) => {
+export const createQueue = async (opts: createQueueOpts) => {
+  opts.redisClient.publish(
+    "mq",
+    JSON.stringify({
+      event: "options",
+      name: opts.name,
+      minTime: opts.minTime,
+    } as OptionsEvent)
+  );
+
   const localWaitList = new Map<string, WaitList>();
 
   const sub = opts.redisClient.duplicate();
-  sub.connect();
+  await sub.connect();
 
-  sub.subscribe("mq", async (message) => {
+  await sub.subscribe("mq", async (message) => {
     const payload = JSON.parse(message) as Event;
     if (payload.name !== opts.name) {
       return;
@@ -36,10 +48,6 @@ export const createQueue = (opts: createQueueOpts) => {
     if (payload.event === "start") {
       const waitListItem = localWaitList.get(payload.id);
       if (waitListItem) {
-        const minTime = waitListItem.minTime ?? opts.globalMinTime;
-        if (minTime) {
-          await setTimeout(minTime);
-        }
         waitListItem.func().finally(() => {
           opts.redisClient.publish(
             "mq",
@@ -62,7 +70,6 @@ export const createQueue = (opts: createQueueOpts) => {
     return new Promise<Awaited<ReturnType<T>>>((resolve, reject) => {
       localWaitList.set(id.toString(), {
         func: async () => resolve(await func().catch(reject)),
-        minTime: addOpts?.minTime,
       });
       opts.redisClient.publish(
         "mq",

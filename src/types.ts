@@ -20,5 +20,10 @@ export interface FinishEvent {
   groupName?: string;
   name: string;
 }
+export interface OptionsEvent {
+  event: "options";
+  name: string;
+  minTime?: number;
+}
 
-export type Event = AddEvent | StartEvent | FinishEvent;
+export type Event = AddEvent | StartEvent | FinishEvent | OptionsEvent;

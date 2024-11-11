@@ -38,7 +38,7 @@ const main = async () => {
     redisClient,
   });
 
-  const queue = await createQueue({
+  const queue = createQueue({
     name: "test-queue",
     redisClient,
     minTime: 1000,

@@ -25,7 +25,7 @@ const generateId = async (redisClient: RedisClient, name?: string) => {
   return id.toString();
 };
 
-export const createQueue = async (opts: createQueueOpts) => {
+export const createQueue = (opts: createQueueOpts) => {
   opts.redisClient.publish(
     "mq",
     JSON.stringify({
@@ -38,9 +38,9 @@ export const createQueue = async (opts: createQueueOpts) => {
   const localWaitList = new Map<string, WaitList>();
 
   const sub = opts.redisClient.duplicate();
-  await sub.connect();
+  sub.connect();
 
-  await sub.subscribe("mq", async (message) => {
+  sub.subscribe("mq", async (message) => {
     const payload = JSON.parse(message) as Event;
     if (payload.name !== opts.name) {
       return;

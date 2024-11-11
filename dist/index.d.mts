@@ -10,9 +10,9 @@ interface createQueueOpts<T = () => any> {
 interface AddOpts {
     groupName?: string;
 }
-declare const createQueue: (opts: createQueueOpts) => Promise<{
+declare const createQueue: (opts: createQueueOpts) => {
     add: <T extends () => any>(func: T, addOpts?: AddOpts) => Promise<ReturnType<T>>;
-}>;
+};
 
 interface CreateQueueProcessorOpts {
     redisClient: RedisClient;

@@ -1,4 +1,4 @@
-import { AddEvent, RedisClient } from "./types";
+import { AddEvent, Event, FinishEvent, RedisClient } from "./types";
 import { makeKey } from "./utils";
 
 interface createQueueOpts<T = () => any> {
@@ -16,29 +16,41 @@ const generateId = async (redisClient: RedisClient, name?: string) => {
 };
 
 export const createQueue = (opts: createQueueOpts) => {
-  const localWaitList = new Map<string, any>();
+  const localWaitList = new Map<string, () => Promise<any>>();
 
   const sub = opts.redisClient.duplicate();
-  const pub = opts.redisClient.duplicate();
+  sub.connect();
 
   sub.subscribe("mq", (message) => {
-    console.log(message);
+    const payload = JSON.parse(message) as Event;
+    if (payload.name !== opts.name) {
+      return;
+    }
+    if (payload.event === "start") {
+      const func = localWaitList.get(payload.id);
+      if (func) {
+        func().finally(() => {
+          opts.redisClient.publish(
+            "mq",
+            JSON.stringify({ ...payload, event: "finish" } as FinishEvent)
+          );
+        });
+        localWaitList.delete(payload.id);
+      }
+    }
   });
 
   const add = async <T extends () => any>(func: T, addOpts?: AddOpts) => {
-    if (!sub.isOpen) {
-      await sub.connect();
-    }
-    if (!pub.isOpen) {
-      await pub.connect();
-    }
-    const id = await generateId(pub, opts.name);
+    const id = await generateId(opts.redisClient, opts.name);
 
-    await pub.sAdd(makeKey("mq", opts.name, addOpts?.groupName, "wait"), id);
+    await opts.redisClient.rPush(
+      makeKey("mq", opts.name, addOpts?.groupName, "wait"),
+      id
+    );
 
     return new Promise<Awaited<ReturnType<T>>>((resolve, reject) => {
-      localWaitList.set(id.toString(), () => resolve(func()));
-      pub.publish(
+      localWaitList.set(id.toString(), async () => resolve(await func()));
+      opts.redisClient.publish(
         "mq",
         JSON.stringify({
           event: "add",

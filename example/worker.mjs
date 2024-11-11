@@ -18,12 +18,12 @@ const queue = createQueue({
 })
 
 
-const test = queue.add(async() => {
-  await setTimeout(1000);
-  return true;
+
+const now = performance.now();
+await queue.add(async() => {
 }, {groupName: "1.1.1"});
 
-const test2 = queue.add(async() => {
-  await setTimeout(1000);
-  return true;
-}, {groupName: "1.1.1"});
+const elapsed = performance.now() - now;
+console.log(elapsed);
+  
+  

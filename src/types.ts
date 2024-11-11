@@ -8,4 +8,17 @@ export interface AddEvent {
   name: string;
 }
 
-export type Event = AddEvent;
+export interface StartEvent {
+  event: "start";
+  id: string;
+  groupName?: string;
+  name: string;
+}
+export interface FinishEvent {
+  event: "finish";
+  id: string;
+  groupName?: string;
+  name: string;
+}
+
+export type Event = AddEvent | StartEvent | FinishEvent;

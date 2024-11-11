@@ -19,11 +19,16 @@ const queue = createQueue({
 
 
 
-const now = performance.now();
-await queue.add(async() => {
-}, {groupName: "1.1.1"});
+queue.add(async() => {
+  await setTimeout(1000)
+  throw new Error("Fudge")
+}, {groupName: "1.1.1"}).catch((err) => {
+  console.log(err)
+})
 
-const elapsed = performance.now() - now;
-console.log(elapsed);
-  
-  
+const status = await queue.add(async() => {
+  await setTimeout(1000)
+  return "done"
+}, {groupName: "1.1.1"})
+
+console.log(status)

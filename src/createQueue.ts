@@ -49,7 +49,9 @@ export const createQueue = (opts: createQueueOpts) => {
     );
 
     return new Promise<Awaited<ReturnType<T>>>((resolve, reject) => {
-      localWaitList.set(id.toString(), async () => resolve(await func()));
+      localWaitList.set(id.toString(), async () =>
+        resolve(await func().catch(reject))
+      );
       opts.redisClient.publish(
         "mq",
         JSON.stringify({

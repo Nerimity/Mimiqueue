@@ -1,5 +1,7 @@
 # Mimiqueue
 
+Free, open source NodeJS group queueing library with redis.
+
 ### Features
 
 - Cluster Support

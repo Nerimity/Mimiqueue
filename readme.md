@@ -30,6 +30,8 @@ const redisClient = createClient({
 const main = async () => {
   await redisClient.connect();
 
+  // NOTE:
+  // When running in a cluster, this needs to be ran ONCE in the main thread.
   await createQueueProcessor({
     redisClient,
   });

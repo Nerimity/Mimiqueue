@@ -1,3 +1,3 @@
-export function key (...args: any[]) {
+export function makeKey(...args: any[]) {
   return args.filter(Boolean).join(":");
 }

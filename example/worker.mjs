@@ -21,8 +21,9 @@ const queue = createQueue({
 const test = queue.add(async() => {
   await setTimeout(1000);
   return true;
-}, {groupName: "test"});
+}, {groupName: "1.1.1"});
+
 const test2 = queue.add(async() => {
   await setTimeout(1000);
   return true;
-}, {groupName: "test"});
+}, {groupName: "1.1.1"});

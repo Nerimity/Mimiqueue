@@ -1,5 +1,5 @@
 import { AddEvent, RedisClient } from "./types";
-import { key } from "./utils";
+import { makeKey } from "./utils";
 
 interface createQueueOpts<T = () => any> {
   redisClient: RedisClient;
@@ -10,47 +10,47 @@ interface AddOpts {
   groupName?: string;
 }
 
-
-const generateId = (redisClient: RedisClient, name?: string) =>  {
-  return redisClient.incr(`mq:${name}:count`);
-}
+const generateId = async (redisClient: RedisClient, name?: string) => {
+  const id = await redisClient.incr(`mq:${name}:count`);
+  return id.toString();
+};
 
 export const createQueue = (opts: createQueueOpts) => {
-
   const localWaitList = new Map<string, any>();
 
-  // opts.redisClient.subscribe("mq:" + opts.name, (channel, message) => {
-  //   console.log(message);
-  // });
+  const sub = opts.redisClient.duplicate();
+  const pub = opts.redisClient.duplicate();
 
-  const add = async <T extends () => any>(
-    func: T,
-    addOpts?: AddOpts
-  ) => {
+  sub.subscribe("mq", (message) => {
+    console.log(message);
+  });
 
-    const id = await generateId(opts.redisClient, opts.name);
-  
-    await opts.redisClient.sAdd(
-      key("mq", opts.name, addOpts?.groupName, "wait"),
-      id.toString(),
-    )
+  const add = async <T extends () => any>(func: T, addOpts?: AddOpts) => {
+    if (!sub.isOpen) {
+      await sub.connect();
+    }
+    if (!pub.isOpen) {
+      await pub.connect();
+    }
+    const id = await generateId(pub, opts.name);
 
-    
+    await pub.sAdd(makeKey("mq", opts.name, addOpts?.groupName, "wait"), id);
+
     return new Promise<Awaited<ReturnType<T>>>((resolve, reject) => {
       localWaitList.set(id.toString(), () => resolve(func()));
-      opts.redisClient.publish("mq", JSON.stringify({
-        event: "add",
-        name: opts.name,
-        groupName: addOpts?.groupName,
-        id,
-      } as AddEvent));
-    })
+      pub.publish(
+        "mq",
+        JSON.stringify({
+          event: "add",
+          name: opts.name,
+          groupName: addOpts?.groupName,
+          id,
+        } as AddEvent)
+      );
+    });
   };
 
   return {
     add,
   };
 };
-
-
-

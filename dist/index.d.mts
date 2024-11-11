@@ -10,7 +10,7 @@ interface AddOpts {
     groupName?: string;
 }
 declare const createQueue: (opts: createQueueOpts) => {
-    add: <T extends () => any>(func: T, opts?: AddOpts) => Promise<Awaited<ReturnType<T>>>;
+    add: <T extends () => any>(func: T, addOpts?: AddOpts) => Promise<ReturnType<T>>;
 };
 
 interface CreateQueueProcessorOpts {

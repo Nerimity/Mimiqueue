@@ -1,2 +1,2 @@
-var i=e=>({add:async(t,s)=>t()});var n=e=>{e.redisClient.pSubscribe("mq:*",(t,s)=>{})};export{i as createQueue,n as createQueueProcessor};
+function o(...e){return e.filter(Boolean).join(":")}var c=(e,t)=>e.incr(`mq:${t}:count`),u=e=>{let t=new Map;return{add:async(n,s)=>{let r=await c(e.redisClient,e.name);return await e.redisClient.sAdd(o("mq",e.name,s?.groupName,"wait"),r.toString()),new Promise((a,l)=>{t.set(r.toString(),()=>a(n())),console.log(r),e.redisClient.publish("mq",JSON.stringify({id:r,groupName:s?.groupName,name:e.name}))})}}};var d=e=>{e.redisClient.subscribe("mq",i=>{let n=JSON.parse(i);console.log(n)})};export{u as createQueue,d as createQueueProcessor};
 //# sourceMappingURL=index.mjs.map

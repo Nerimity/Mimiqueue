@@ -1,4 +1,4 @@
-import { RedisClient } from "./types";
+import { RedisClient, Event } from "./types";
 
 interface CreateQueueProcessorOpts {
   redisClient: RedisClient;
@@ -9,5 +9,8 @@ interface CreateQueueProcessorOpts {
  */
 export const createQueueProcessor = (opts: CreateQueueProcessorOpts) => {
   const redisClient = opts.redisClient;
-  redisClient.pSubscribe("mq:*", (channel, message) => {});
+  redisClient.subscribe("mq", ( message) => {
+    const data = JSON.parse(message) as Event;
+    
+  });
 };

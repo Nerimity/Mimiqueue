@@ -1,5 +1,12 @@
 # Mimiqueue
 
+### Features
+
+- Cluster Support
+- Redis Required
+- Group Queuing
+- Throttle Support (minTime)
+
 ### Installation
 
 ```
@@ -9,8 +16,8 @@ pnpm i redis @nerimity/mimiqueue
 ### Usage
 
 ```ts
+import { createQueue, createQueueProcessor } from "@nerimity/mimiqueue";
 import { createClient } from "redis";
-import { Queue } from "@nerimity/mimiqueue";
 import { setTimeout } from "timers/promises";
 
 const redisClient = createClient({
@@ -20,93 +27,39 @@ const redisClient = createClient({
   },
 });
 
-await redisClient.connect();
-await redisClient.flushAll();
+const main = async () => {
+  await redisClient.connect();
 
-const addFriendQueue = new Queue({
-  redisClient,
-  name: "addFriend",
-  process: async (data) => {
-    await setTimeout(2000);
-    return { done: "lol", data };
-  },
-});
+  // NOTE:
+  // When running in a cluster, this needs to be ran ONCE in the main thread.
+  await createQueueProcessor({
+    redisClient,
+  });
 
-addFriendQueue.add({ someData: 1 }, { groupName: "1234" }).then((res) => {
-  console.log(res);
-});
-addFriendQueue.add("hello", { groupName: "1234" }).then((res) => {
-  console.log(res);
-});
-addFriendQueue.add(123).then((res) => {
-  console.log(res);
-});
-```
+  const queue = await createQueue({
+    name: "test-queue",
+    redisClient,
+    minTime: 1000,
+  });
 
-## Alt Usage
+  queue.add(
+    async () => {
+      await setTimeout(5000);
+      return "done";
+    },
+    { groupName: "someId eg ip address" }
+  );
 
-```ts
-import { createClient } from "redis";
-import { AltQueue } from "@nerimity/mimiqueue";
-import { setTimeout } from "timers/promises";
+  const status = await queue.add(
+    async () => {
+      await setTimeout(5000);
+      return "done";
+    },
+    { groupName: "someId eg ip address" }
+  );
 
-const redisClient = createClient({
-  socket: {
-    host: "127.0.0.1",
-    port: 6379,
-  },
-});
+  console.log(status);
+};
 
-await redisClient.connect();
-await redisClient.flushAll();
-
-const queue = new AltQueue({
-  redisClient,
-  name: "addFriend",
-});
-
-async function doSomething(groupName) {
-  const done = await queue.start({ groupName });
-  console.log("doing something");
-  await setTimeout(1000);
-  done();
-}
-
-doSomething("123");
-doSomething("123");
-```
-
-## Alt 2 Usage
-
-```ts
-import { createClient } from "redis";
-import { AltQueue2 } from "@nerimity/mimiqueue";
-import { setTimeout } from "timers/promises";
-
-const redisClient = createClient({
-  socket: {
-    host: "127.0.0.1",
-    port: 6379,
-  },
-});
-
-await redisClient.connect();
-await redisClient.flushAll();
-
-const queue = new AltQueue2({
-  redisClient,
-  name: "addFriend",
-});
-
-async function queueDoSomething(groupName) {
-  queue.add(() => doSomething(groupName), { groupName });
-}
-
-async function doSomething(groupName) {
-  console.log("doing something");
-  await setTimeout(1000);
-}
-
-queueDoSomething("123");
-queueDoSomething("123");
+main();
 ```

@@ -5,9 +5,11 @@ type RedisClient = ReturnType<typeof createClient>;
 interface createQueueOpts<T = () => any> {
     redisClient: RedisClient;
     name: string;
+    globalMinTime?: number;
 }
 interface AddOpts {
     groupName?: string;
+    minTime?: number;
 }
 declare const createQueue: (opts: createQueueOpts) => {
     add: <T extends () => any>(func: T, addOpts?: AddOpts) => Promise<ReturnType<T>>;

@@ -15,20 +15,14 @@ await redisClient.connect();
 const queue = createQueue({
   name: "test-queue",
   redisClient,
+  globalMinTime: 333
 })
 
 
+for (let index = 0; index < 5; index++) {
 
-queue.add(async() => {
-  await setTimeout(1000)
-  throw new Error("Fudge")
-}, {groupName: "1.1.1"}).catch((err) => {
-  console.log(err)
-})
-
-const status = await queue.add(async() => {
-  await setTimeout(1000)
-  return "done"
-}, {groupName: "1.1.1"})
-
-console.log(status)
+  const status =  queue.add(async() => {
+    console.log("done")
+    return "done"
+  }, {groupName: "1.1.1", minTime: 0})
+}

@@ -1,6 +1,6 @@
 # Mimiqueue
 
-Free, open source NodeJS group queueing library with redis.
+Free, open source NodeJS group queueing library with redis. Currently being used in https://nerimity.com (My chat app)
 
 ### Features
 

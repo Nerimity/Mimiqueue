@@ -9,9 +9,12 @@ interface createQueueOpts<T = () => any> {
 }
 interface AddOpts {
     groupName?: string;
+    id?: string;
 }
 declare const createQueue: (opts: createQueueOpts) => {
     add: <T extends () => any>(func: T, addOpts?: AddOpts) => Promise<ReturnType<T>>;
+    genId: () => Promise<string>;
+    getQueuePosition: (id: string, groupName?: string) => Promise<number | null>;
 };
 
 interface CreateQueueProcessorOpts {

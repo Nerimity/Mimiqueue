@@ -14,6 +14,7 @@ interface createQueueOpts<T = () => any> {
 
 interface AddOpts {
   groupName?: string;
+  id?: string;
 }
 
 interface WaitList {
@@ -27,6 +28,17 @@ const generateId = async (redisClient: RedisClient, name?: string) => {
 
 export const createQueue = (opts: createQueueOpts) => {
   const localWaitList = new Map<string, WaitList>();
+
+  const genId = async () => {
+    return await generateId(opts.redisClient, opts.name);
+  };
+
+  const getQueuePosition = async (id: string, groupName?: string) => {
+    return await opts.redisClient.lPos(
+      makeKey("mq", opts.name, groupName, "wait"),
+      id
+    );
+  };
 
   const pub = opts.redisClient.duplicate();
   const sub = opts.redisClient.duplicate();
@@ -62,7 +74,7 @@ export const createQueue = (opts: createQueueOpts) => {
   });
 
   const add = async <T extends () => any>(func: T, addOpts?: AddOpts) => {
-    const id = await generateId(opts.redisClient, opts.name);
+    const id = addOpts?.id || (await genId());
 
     await opts.redisClient.rPush(
       makeKey("mq", opts.name, addOpts?.groupName, "wait"),
@@ -87,5 +99,7 @@ export const createQueue = (opts: createQueueOpts) => {
 
   return {
     add,
+    genId,
+    getQueuePosition,
   };
 };

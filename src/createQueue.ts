@@ -43,13 +43,9 @@ export const createQueue = (opts: createQueueOpts) => {
     return await generateId(opts.redisClient, opts.name);
   };
 
-  const getQueuePosition = async (
-    id: string,
-    groupName?: string,
-    prefix?: string
-  ) => {
+  const getQueuePosition = async (id: string, groupName?: string) => {
     return await opts.redisClient.lPos(
-      makeKey(`mq${prefix}`, opts.name, groupName, "wait"),
+      makeKey(`mq${opts.prefix}`, opts.name, groupName, "wait"),
       id
     );
   };

@@ -15,7 +15,7 @@ interface AddOpts {
 declare const createQueue: (opts: createQueueOpts) => {
     add: <T extends () => any>(func: T, addOpts?: AddOpts) => Promise<ReturnType<T>>;
     genId: () => Promise<string>;
-    getQueuePosition: (id: string, groupName?: string, prefix?: string) => Promise<number | null>;
+    getQueuePosition: (id: string, groupName?: string) => Promise<number | null>;
 };
 
 interface CreateQueueProcessorOpts {

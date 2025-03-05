@@ -4,6 +4,7 @@ import { makeKey } from "./utils";
 import { setTimeout } from "timers/promises";
 
 interface CreateQueueProcessorOpts {
+  prefix?: string;
   redisClient: RedisClient;
 }
 
@@ -16,13 +17,29 @@ interface QueueOption {
  *
  */
 export const createQueueProcessor = async (opts: CreateQueueProcessorOpts) => {
+  if (opts.prefix) {
+    opts.prefix = `-${opts.prefix}`;
+  } else {
+    opts.prefix = "";
+  }
   const redisClient = opts.redisClient;
   const queueOptions: Map<string, QueueOption> = new Map();
 
   const sub = redisClient.duplicate();
   await sub.connect();
 
-  await sub.subscribe("mq", async (message) => {
+  let keysToDelete = [];
+  for await (const key of sub.scanIterator({
+    MATCH: `mq${opts.prefix}:*`,
+  })) {
+    keysToDelete.push(key);
+  }
+  if (keysToDelete.length) {
+    await redisClient.del(keysToDelete);
+    keysToDelete = [];
+  }
+
+  await sub.subscribe(`mq${opts.prefix}`, async (message) => {
     const payload = JSON.parse(message) as Event;
 
     if (payload.event === "options") {
@@ -45,12 +62,17 @@ export const createQueueProcessor = async (opts: CreateQueueProcessorOpts) => {
     localQueue.run(async () => {
       if (payload.event === "add") {
         const activeKey = makeKey(
-          "mq",
+          `mq${opts.prefix}`,
           payload.name,
           payload.groupName,
           "active"
         );
-        const waitKey = makeKey("mq", payload.name, payload.groupName, "wait");
+        const waitKey = makeKey(
+          `mq${opts.prefix}`,
+          payload.name,
+          payload.groupName,
+          "wait"
+        );
 
         const activeEntriesLength = await redisClient.lLen(activeKey);
         if (activeEntriesLength) {
@@ -63,21 +85,26 @@ export const createQueueProcessor = async (opts: CreateQueueProcessorOpts) => {
           await setTimeout(options.minTime);
         }
         redisClient.publish(
-          "mq",
+          `mq${opts.prefix}`,
           JSON.stringify({ ...payload, event: "start" } as StartEvent)
         );
       }
 
       if (payload.event === "finish") {
         const activeKey = makeKey(
-          "mq",
+          `mq${opts.prefix}`,
           payload.name,
           payload.groupName,
           "active"
         );
         await redisClient.lRem(activeKey, 1, payload.id);
 
-        const waitKey = makeKey("mq", payload.name, payload.groupName, "wait");
+        const waitKey = makeKey(
+          `mq${opts.prefix}`,
+          payload.name,
+          payload.groupName,
+          "wait"
+        );
 
         const firstWaitingId = await redisClient.lPop(waitKey);
 
@@ -87,7 +114,7 @@ export const createQueueProcessor = async (opts: CreateQueueProcessorOpts) => {
             await setTimeout(options.minTime);
           }
           redisClient.publish(
-            "mq",
+            `mq${opts.prefix}`,
             JSON.stringify({
               ...payload,
               id: firstWaitingId,

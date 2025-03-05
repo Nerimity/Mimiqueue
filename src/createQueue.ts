@@ -7,6 +7,7 @@ import {
 } from "./types";
 import { makeKey } from "./utils";
 interface createQueueOpts<T = () => any> {
+  prefix?: string;
   redisClient: RedisClient;
   name: string;
   minTime?: number;
@@ -21,21 +22,34 @@ interface WaitList {
   func: () => Promise<any>;
 }
 
-const generateId = async (redisClient: RedisClient, name?: string) => {
-  const id = await redisClient.incr(`mq:${name}:count`);
+const generateId = async (
+  redisClient: RedisClient,
+  name?: string,
+  prefix?: string
+) => {
+  const id = await redisClient.incr(makeKey(`mq${prefix}`, name, "count"));
   return id.toString();
 };
 
 export const createQueue = (opts: createQueueOpts) => {
+  if (opts.prefix) {
+    opts.prefix = `-${opts.prefix}`;
+  } else {
+    opts.prefix = "";
+  }
   const localWaitList = new Map<string, WaitList>();
 
   const genId = async () => {
     return await generateId(opts.redisClient, opts.name);
   };
 
-  const getQueuePosition = async (id: string, groupName?: string) => {
+  const getQueuePosition = async (
+    id: string,
+    groupName?: string,
+    prefix?: string
+  ) => {
     return await opts.redisClient.lPos(
-      makeKey("mq", opts.name, groupName, "wait"),
+      makeKey(`mq${prefix}`, opts.name, groupName, "wait"),
       id
     );
   };
@@ -45,7 +59,7 @@ export const createQueue = (opts: createQueueOpts) => {
   sub.connect();
   pub.connect().then(() => {
     opts.redisClient.publish(
-      "mq",
+      `mq${opts.prefix}`,
       JSON.stringify({
         event: "options",
         name: opts.name,
@@ -54,7 +68,7 @@ export const createQueue = (opts: createQueueOpts) => {
     );
   });
 
-  sub.subscribe("mq", async (message) => {
+  sub.subscribe(`mq${opts.prefix}`, async (message) => {
     const payload = JSON.parse(message) as Event;
     if (payload.name !== opts.name) {
       return;
@@ -64,7 +78,7 @@ export const createQueue = (opts: createQueueOpts) => {
       if (waitListItem) {
         waitListItem.func().finally(() => {
           opts.redisClient.publish(
-            "mq",
+            `mq${opts.prefix}`,
             JSON.stringify({ ...payload, event: "finish" } as FinishEvent)
           );
         });
@@ -77,7 +91,7 @@ export const createQueue = (opts: createQueueOpts) => {
     const id = addOpts?.id || (await genId());
 
     await opts.redisClient.rPush(
-      makeKey("mq", opts.name, addOpts?.groupName, "wait"),
+      makeKey(`mq${opts.prefix}`, opts.name, addOpts?.groupName, "wait"),
       id
     );
 
@@ -86,7 +100,7 @@ export const createQueue = (opts: createQueueOpts) => {
         func: async () => resolve(await func().catch(reject)),
       });
       opts.redisClient.publish(
-        "mq",
+        `mq${opts.prefix}`,
         JSON.stringify({
           event: "add",
           name: opts.name,

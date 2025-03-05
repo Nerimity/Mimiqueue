@@ -1,6 +1,6 @@
 {
   "name": "@nerimity/mimiqueue",
-  "version": "2.0.4",
+  "version": "2.1.0",
   "description": "NodeJS group queuing library. Requires Redis.",
   "main": "dist/index.mjs",
   "scripts": {
@@ -11,9 +11,9 @@
   "author": "SupertigerDev",
   "license": "ISC",
   "devDependencies": {
-    "@types/node": "^22.1.0",
-    "tsup": "^8.2.4",
-    "typescript": "^5.5.4"
+    "@types/node": "^22.13.9",
+    "tsup": "^8.4.0",
+    "typescript": "^5.8.2"
   },
   "dependencies": {
     "async-await-queue": "^2.1.4"

@@ -1,11 +1,8 @@
-import { createClient } from 'redis';
-import {createQueueProcessor} from '../dist/index.mjs';
-import cluster from 'cluster';
-
+import { createClient } from "redis";
+import { createQueueProcessor } from "../dist/index.mjs";
+import cluster from "cluster";
 
 if (cluster.isPrimary) {
-
-
   const redisClient = createClient({
     socket: {
       host: "127.0.0.1",
@@ -13,7 +10,6 @@ if (cluster.isPrimary) {
     },
   });
   await redisClient.connect();
-  await redisClient.flushAll();
 
   await createQueueProcessor({
     redisClient,
@@ -22,10 +18,6 @@ if (cluster.isPrimary) {
   for (let i = 0; i < 4; i++) {
     cluster.fork();
   }
-
-
-
 } else {
-  import('./worker.mjs');
+  import("./worker.mjs");
 }
-

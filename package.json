@@ -1,6 +1,6 @@
 {
   "name": "@nerimity/mimiqueue",
-  "version": "2.1.1",
+  "version": "2.1.2",
   "description": "NodeJS group queuing library. Requires Redis.",
   "main": "dist/index.mjs",
   "scripts": {

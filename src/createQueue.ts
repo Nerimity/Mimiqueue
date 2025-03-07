@@ -40,7 +40,7 @@ export const createQueue = (opts: createQueueOpts) => {
   const localWaitList = new Map<string, WaitList>();
 
   const genId = async () => {
-    return await generateId(opts.redisClient, opts.name);
+    return await generateId(opts.redisClient, opts.name, opts.prefix);
   };
 
   const getQueuePosition = async (id: string, groupName?: string) => {

@@ -54,7 +54,7 @@ export const createQueue = (opts: createQueueOpts) => {
   const sub = opts.redisClient.duplicate();
   sub.connect();
   pub.connect().then(() => {
-    opts.redisClient.publish(
+    pub.publish(
       `mq${opts.prefix}`,
       JSON.stringify({
         event: "options",

@@ -1,10 +1,8 @@
-import { createClient } from 'redis';
-
-type RedisClient = ReturnType<typeof createClient>;
+import { Redis } from 'ioredis';
 
 interface createQueueOpts<T = () => any> {
     prefix?: string;
-    redisClient: RedisClient;
+    redisClient: Redis;
     name: string;
     minTime?: number;
 }
@@ -20,7 +18,7 @@ declare const createQueue: (opts: createQueueOpts) => {
 
 interface CreateQueueProcessorOpts {
     prefix?: string;
-    redisClient: RedisClient;
+    redisClient: Redis;
 }
 /**
  *  This function should be ran in the main thread.

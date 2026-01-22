@@ -1,11 +1,12 @@
 import { Queue } from "async-await-queue";
-import { RedisClient, Event, StartEvent } from "./types";
+import { Event, StartEvent } from "./types";
 import { makeKey } from "./utils";
 import { setTimeout } from "timers/promises";
+import type { Redis } from "ioredis";
 
 interface CreateQueueProcessorOpts {
   prefix?: string;
-  redisClient: RedisClient;
+  redisClient: Redis;
 }
 
 interface QueueOption {
@@ -26,20 +27,30 @@ export const createQueueProcessor = async (opts: CreateQueueProcessorOpts) => {
   const queueOptions: Map<string, QueueOption> = new Map();
 
   const sub = redisClient.duplicate();
-  await sub.connect();
+  await sub.connect().catch(() => {});
 
   let keysToDelete = [];
-  for await (const key of sub.scanIterator({
-    MATCH: `mq${opts.prefix}:*`,
-  })) {
-    keysToDelete.push(key);
+
+  const stream = redisClient.scanStream({
+    match: `mq${opts.prefix}:*`,
+    count: 100,
+  });
+
+  for await (const keys of stream) {
+    keysToDelete.push(...keys);
   }
+
   if (keysToDelete.length) {
     await redisClient.del(keysToDelete);
     keysToDelete = [];
   }
 
-  await sub.subscribe(`mq${opts.prefix}`, async (message) => {
+  await sub.subscribe(`mq${opts.prefix}`);
+
+  sub.on("message", async (channel, message) => {
+    if (channel !== `mq${opts.prefix}`) {
+      return;
+    }
     const payload = JSON.parse(message) as Event;
 
     if (payload.event === "options") {
@@ -65,28 +76,28 @@ export const createQueueProcessor = async (opts: CreateQueueProcessorOpts) => {
           `mq${opts.prefix}`,
           payload.name,
           payload.groupName,
-          "active"
+          "active",
         );
         const waitKey = makeKey(
           `mq${opts.prefix}`,
           payload.name,
           payload.groupName,
-          "wait"
+          "wait",
         );
 
-        const activeEntriesLength = await redisClient.lLen(activeKey);
+        const activeEntriesLength = await redisClient.llen(activeKey);
         if (activeEntriesLength) {
           return;
         }
 
-        await redisClient.lRem(waitKey, 1, payload.id);
-        await redisClient.rPush(activeKey, payload.id);
+        await redisClient.lrem(waitKey, 1, payload.id);
+        await redisClient.rpush(activeKey, payload.id);
         if (options.minTime) {
           await setTimeout(options.minTime);
         }
         redisClient.publish(
           `mq${opts.prefix}`,
-          JSON.stringify({ ...payload, event: "start" } as StartEvent)
+          JSON.stringify({ ...payload, event: "start" } as StartEvent),
         );
       }
 
@@ -95,21 +106,21 @@ export const createQueueProcessor = async (opts: CreateQueueProcessorOpts) => {
           `mq${opts.prefix}`,
           payload.name,
           payload.groupName,
-          "active"
+          "active",
         );
-        await redisClient.lRem(activeKey, 1, payload.id);
+        await redisClient.lrem(activeKey, 1, payload.id);
 
         const waitKey = makeKey(
           `mq${opts.prefix}`,
           payload.name,
           payload.groupName,
-          "wait"
+          "wait",
         );
 
-        const firstWaitingId = await redisClient.lPop(waitKey);
+        const firstWaitingId = await redisClient.lpop(waitKey);
 
         if (firstWaitingId) {
-          await redisClient.rPush(activeKey, firstWaitingId);
+          await redisClient.rpush(activeKey, firstWaitingId);
           if (options.minTime) {
             await setTimeout(options.minTime);
           }
@@ -119,7 +130,7 @@ export const createQueueProcessor = async (opts: CreateQueueProcessorOpts) => {
               ...payload,
               id: firstWaitingId,
               event: "start",
-            } as StartEvent)
+            } as StartEvent),
           );
         }
       }

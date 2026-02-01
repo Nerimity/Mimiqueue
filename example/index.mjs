@@ -1,16 +1,18 @@
+import { createClient } from "redis";
 import { createQueueProcessor } from "../dist/index.mjs";
 import cluster from "cluster";
 
-import { Redis } from "ioredis";
-
 if (cluster.isPrimary) {
-  const ioRedisClient = new Redis({
-    host: "127.0.0.1",
-    port: 6379,
+  const redisClient = createClient({
+    socket: {
+      host: "127.0.0.1",
+      port: 6379,
+    },
   });
+  await redisClient.connect();
 
   await createQueueProcessor({
-    redisClient: ioRedisClient,
+    redisClient,
   });
 
   for (let i = 0; i < 4; i++) {

@@ -1,10 +1,14 @@
-import { AddEvent, Event, FinishEvent, OptionsEvent } from "./types";
+import {
+  AddEvent,
+  Event,
+  FinishEvent,
+  OptionsEvent,
+  RedisClient,
+} from "./types";
 import { makeKey } from "./utils";
-
-import type { Redis } from "ioredis";
 interface createQueueOpts<T = () => any> {
   prefix?: string;
-  redisClient: Redis;
+  redisClient: RedisClient;
   name: string;
   minTime?: number;
 }
@@ -19,9 +23,9 @@ interface WaitList {
 }
 
 const generateId = async (
-  redisClient: Redis,
+  redisClient: RedisClient,
   name?: string,
-  prefix?: string,
+  prefix?: string
 ) => {
   const id = await redisClient.incr(makeKey(`mq${prefix}`, name, "count"));
   return id.toString();
@@ -40,33 +44,27 @@ export const createQueue = (opts: createQueueOpts) => {
   };
 
   const getQueuePosition = async (id: string, groupName?: string) => {
-    return await opts.redisClient.lpos(
+    return await opts.redisClient.lPos(
       makeKey(`mq${opts.prefix}`, opts.name, groupName, "wait"),
-      id,
+      id
     );
   };
 
   const pub = opts.redisClient.duplicate();
   const sub = opts.redisClient.duplicate();
-
-  const initPromise = (async () => {
-    await sub.connect();
-    await sub.subscribe(`mq${opts.prefix}`);
-    await pub.connect();
-    await pub.publish(
+  sub.connect();
+  pub.connect().then(() => {
+    pub.publish(
       `mq${opts.prefix}`,
       JSON.stringify({
         event: "options",
         name: opts.name,
         minTime: opts.minTime,
-      } as OptionsEvent),
+      } as OptionsEvent)
     );
-  })();
+  });
 
-  sub.on("message", async (channel, message) => {
-    if (channel !== `mq${opts.prefix}`) {
-      return;
-    }
+  sub.subscribe(`mq${opts.prefix}`, async (message) => {
     const payload = JSON.parse(message) as Event;
     if (payload.name !== opts.name) {
       return;
@@ -77,7 +75,7 @@ export const createQueue = (opts: createQueueOpts) => {
         waitListItem.func().finally(() => {
           opts.redisClient.publish(
             `mq${opts.prefix}`,
-            JSON.stringify({ ...payload, event: "finish" } as FinishEvent),
+            JSON.stringify({ ...payload, event: "finish" } as FinishEvent)
           );
         });
         localWaitList.delete(payload.id);
@@ -86,12 +84,11 @@ export const createQueue = (opts: createQueueOpts) => {
   });
 
   const add = async <T extends () => any>(func: T, addOpts?: AddOpts) => {
-    await initPromise;
     const id = addOpts?.id || (await genId());
 
-    await opts.redisClient.rpush(
+    await opts.redisClient.rPush(
       makeKey(`mq${opts.prefix}`, opts.name, addOpts?.groupName, "wait"),
-      id,
+      id
     );
 
     return new Promise<Awaited<ReturnType<T>>>((resolve, reject) => {
@@ -105,7 +102,7 @@ export const createQueue = (opts: createQueueOpts) => {
           name: opts.name,
           groupName: addOpts?.groupName,
           id,
-        } as AddEvent),
+        } as AddEvent)
       );
     });
   };

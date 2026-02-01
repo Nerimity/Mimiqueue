@@ -1,13 +1,12 @@
 import { createQueue } from "../dist/index.mjs";
-// import { createClient } from "redis";
+import { createClient } from "redis";
 import { setTimeout } from "timers/promises";
 
-import { Redis } from "ioredis";
-
-const redisClient = new Redis({
-  host: "127.0.0.1",
-  port: 6379,
-  lazyConnect: true,
+const redisClient = createClient({
+  socket: {
+    host: "127.0.0.1",
+    port: 6379,
+  },
 });
 
 await redisClient.connect();
@@ -25,6 +24,6 @@ for (let index = 0; index < 4; index++) {
       console.log("done", index);
       return "done";
     },
-    { groupName: "1.1.1" + Math.random() },
+    { groupName: "1.1.1" + Math.random() }
   );
 }
